@@ -24,6 +24,8 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.log4j.Logger;
 
+import org.apache.commons.codec.binary.Base64;
+
 
 /**
  * Provides a RecordWriter that uses FSDataOutputStream to write
@@ -126,8 +128,24 @@ public class StringRecordWriterProvider implements RecordWriterProvider {
     public void write(IEtlKey ignore, CamusWrapper value) throws IOException {
       boolean nullValue = value == null;
       if (!nullValue) {
-        String record = (String) value.getRecord() + recordDelimiter;
-        out.write(record.getBytes());
+        String record = (String) value.getRecord();
+        String[] keyValueSplit = record.split(" ", -1);
+        if (keyValueSplit.length == 2) {
+          Base64 base64 = new Base64();
+          byte[] decoded = null;
+          try {
+            decoded = base64.decodeBase64(keyValueSplit[1].getBytes());
+          }
+          catch (Exception e) {
+            throw new IOException(e);
+          }
+          if (decoded != null) {
+            out.write(keyValueSplit[0].getBytes());
+            out.write(" ".getBytes());
+            out.write(decoded);
+            out.write(recordDelimiter.getBytes());
+          }
+        }
       }
     }
 

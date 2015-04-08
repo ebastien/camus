@@ -27,9 +27,12 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
 
+import java.nio.ByteBuffer;
+
 
 public class EtlRecordReader extends RecordReader<EtlKey, CamusWrapper> {
   private static final String PRINT_MAX_DECODER_EXCEPTIONS = "max.decoder.exceptions.to.print";
+  private static final String DECODE_KEY = "decoder.key.decode";
   private static final String DEFAULT_SERVER = "server";
   private static final String DEFAULT_SERVICE = "service";
 
@@ -128,10 +131,18 @@ public class EtlRecordReader extends RecordReader<EtlKey, CamusWrapper> {
     }
   }
 
-  private CamusWrapper getWrappedRecord(String topicName, byte[] payload) throws IOException {
+  private CamusWrapper getWrappedRecord(String topicName, byte[] payload, byte[] key,boolean decodeKey) throws IOException {
     CamusWrapper r = null;
     try {
-      r = decoder.decode(payload);
+      if (decodeKey) {
+        byte[] array = new byte[4 + key.length + 4 + payload.length];
+        ByteBuffer buf = ByteBuffer.wrap(array);  
+        buf.putInt(key.length).put(key).putInt(payload.length).put(payload);
+        r = decoder.decode(array);
+      }
+      else {
+        r = decoder.decode(payload);
+      }
       mapperContext.getCounter(KAFKA_MSG.DECODE_SUCCESSFUL).increment(1);
     } catch (SchemaNotFoundException e) {
       mapperContext.getCounter(KAFKA_MSG.SKIPPED_SCHEMA_NOT_FOUND).increment(1);
@@ -246,7 +257,7 @@ public class EtlRecordReader extends RecordReader<EtlKey, CamusWrapper> {
               new KafkaReader(inputFormat, context, request, CamusJob.getKafkaTimeoutValue(mapperContext),
                   CamusJob.getKafkaBufferSize(mapperContext));
 
-          decoder = createDecoder(request.getTopic());
+          this.decoder = createDecoder(request.getTopic());
         }
         int count = 0;
         while (reader.getNext(key, msgValue, msgKey)) {
@@ -272,7 +283,7 @@ public class EtlRecordReader extends RecordReader<EtlKey, CamusWrapper> {
           long tempTime = System.currentTimeMillis();
           CamusWrapper wrapper;
           try {
-            wrapper = getWrappedRecord(key.getTopic(), bytes);
+            wrapper = getWrappedRecord(key.getTopic(), bytes, keyBytes, isDecodeKey(context));
           } catch (Exception e) {
             if (exceptionCount < getMaximumDecoderExceptionsToPrint(context)) {
               mapperContext.write(key, new ExceptionWritable(e));
@@ -363,6 +374,10 @@ public class EtlRecordReader extends RecordReader<EtlKey, CamusWrapper> {
       key.setServer(DEFAULT_SERVER);
       key.setService(DEFAULT_SERVICE);
     }
+  }
+
+  public static Boolean isDecodeKey(JobContext job) {
+    return job.getConfiguration().getBoolean(DECODE_KEY, false);
   }
 
   public static int getMaximumDecoderExceptionsToPrint(JobContext job) {

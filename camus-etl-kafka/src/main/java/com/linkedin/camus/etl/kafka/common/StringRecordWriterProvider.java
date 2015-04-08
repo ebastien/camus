@@ -34,6 +34,8 @@ import org.apache.commons.codec.binary.Base64;
 public class StringRecordWriterProvider implements RecordWriterProvider {
   public static final String ETL_OUTPUT_RECORD_DELIMITER = "etl.output.record.delimiter";
   public static final String DEFAULT_RECORD_DELIMITER = "\n";
+  public static final String DUMP_KEY = "string.record.writer.dumpkey";
+
 
   protected String recordDelimiter = null;
 
@@ -88,10 +90,11 @@ public class StringRecordWriterProvider implements RecordWriterProvider {
     FileSystem fs = path.getFileSystem(context.getConfiguration());
     if (!isCompressed) {
       FSDataOutputStream fileOut = fs.create(path, false);
-      return new ByteRecordWriter(fileOut, recordDelimiter);
+      return new ByteRecordWriter(fileOut, recordDelimiter, context.getConfiguration().getBoolean(DUMP_KEY, false));
     } else {
       FSDataOutputStream fileOut = fs.create(path, false);
-      return new ByteRecordWriter(new DataOutputStream(codec.createOutputStream(fileOut)), recordDelimiter);
+      return new ByteRecordWriter(new DataOutputStream(codec.createOutputStream(fileOut)), recordDelimiter,
+                                    context.getConfiguration().getBoolean(DUMP_KEY, false));
     }
 
     /*
@@ -118,10 +121,12 @@ public class StringRecordWriterProvider implements RecordWriterProvider {
   protected static class ByteRecordWriter extends RecordWriter<IEtlKey, CamusWrapper> {
     private DataOutputStream out;
     private String recordDelimiter;
+    private boolean dumpKey;
 
-    public ByteRecordWriter(DataOutputStream out, String recordDelimiter) {
+    public ByteRecordWriter(DataOutputStream out, String recordDelimiter, boolean dumpKey) {
       this.out = out;
       this.recordDelimiter = recordDelimiter;
+      this.dumpKey = dumpKey;
     }
 
     @Override
@@ -140,8 +145,10 @@ public class StringRecordWriterProvider implements RecordWriterProvider {
             throw new IOException(e);
           }
           if (decoded != null) {
-            out.write(keyValueSplit[0].getBytes());
-            out.write(" ".getBytes());
+            if (dumpKey) {
+              out.write(keyValueSplit[0].getBytes());
+              out.write(" ".getBytes());
+            }
             out.write(decoded);
             out.write(recordDelimiter.getBytes());
           }

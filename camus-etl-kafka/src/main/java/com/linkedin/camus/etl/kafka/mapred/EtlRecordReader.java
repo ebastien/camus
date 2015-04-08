@@ -32,7 +32,7 @@ import java.nio.ByteBuffer;
 
 public class EtlRecordReader extends RecordReader<EtlKey, CamusWrapper> {
   private static final String PRINT_MAX_DECODER_EXCEPTIONS = "max.decoder.exceptions.to.print";
-  private static final String DECODE_KEY = "decoder.key.decode";
+  public static final String DECODE_KEY = "decoder.key.decode";
   private static final String DEFAULT_SERVER = "server";
   private static final String DEFAULT_SERVICE = "service";
 

@@ -97,25 +97,6 @@ public class StringRecordWriterProvider implements RecordWriterProvider {
                                     context.getConfiguration().getBoolean(DUMP_KEY, false));
     }
 
-    /*
-    // Create a FSDataOutputStream stream that will write to path.
-    final FSDataOutputStream writer = path.getFileSystem(context.getConfiguration()).create(path);
-
-    // Return a new anonymous RecordWriter that uses the
-    // FSDataOutputStream writer to write bytes straight into path.
-    return new RecordWriter<IEtlKey, CamusWrapper>() {
-        @Override
-        public void write(IEtlKey ignore, CamusWrapper data) throws IOException {
-            String record = (String)data.getRecord() + recordDelimiter;
-            writer.write(record.getBytes());
-        }
-
-        @Override
-        public void close(TaskAttemptContext context) throws IOException, InterruptedException {
-            writer.close();
-        }
-    };
-    */
   }
 
   protected static class ByteRecordWriter extends RecordWriter<IEtlKey, CamusWrapper> {

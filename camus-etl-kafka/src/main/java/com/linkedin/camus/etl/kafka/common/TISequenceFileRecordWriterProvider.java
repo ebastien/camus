@@ -23,6 +23,9 @@ import org.apache.hadoop.conf.Configuration;
 
 import org.apache.log4j.Logger;
 
+import org.apache.commons.codec.binary.Base64;
+
+
 
 /**
  * Provides a RecordWriter that uses SequenceFile.Writer to write
@@ -34,15 +37,17 @@ import org.apache.log4j.Logger;
  * - mapreduce.output.fileoutputformat.compress.type    - BLOCK or RECORD
  *
  */
-public class SequenceFileRecordWriterProvider implements RecordWriterProvider {
+public class TISequenceFileRecordWriterProvider implements RecordWriterProvider {
   public static final String ETL_OUTPUT_RECORD_DELIMITER = "etl.output.record.delimiter";
   public static final String DEFAULT_RECORD_DELIMITER = "";
+  public static final String DUMP_KEY = "string.record.writer.dumpkey";
+
 
   private static Logger log = Logger.getLogger(SequenceFileRecordWriterProvider.class);
 
   protected String recordDelimiter = null;
 
-  public SequenceFileRecordWriterProvider(TaskAttemptContext context) {
+  public TISequenceFileRecordWriterProvider(TaskAttemptContext context) {
 
   }
 
@@ -83,18 +88,38 @@ public class SequenceFileRecordWriterProvider implements RecordWriterProvider {
     log.info("Creating new SequenceFile.Writer with compression type " + compressionType + " and compression codec "
         + (compressionCodec != null ? compressionCodec.getClass().getName() : "null"));
     final SequenceFile.Writer writer =
-        SequenceFile.createWriter(path.getFileSystem(conf), conf, path, LongWritable.class, Text.class,
+        SequenceFile.createWriter(path.getFileSystem(conf), conf, path, Text.class, Text.class,
             compressionType, compressionCodec, context);
+
+    final boolean dumpKey = conf.getBoolean(DUMP_KEY, false);
 
     // Return a new anonymous RecordWriter that uses the
     // SequenceFile.Writer to write data to HDFS
     return new RecordWriter<IEtlKey, CamusWrapper>() {
       @Override
       public void write(IEtlKey key, CamusWrapper data) throws IOException, InterruptedException {
-        String record = (String) data.getRecord() + recordDelimiter;
-        // Use the timestamp from the EtlKey as the key for this record.
-        // TODO: Is there a better key to use here?
-        writer.append(new LongWritable(key.getTime()), new Text(record));
+        String record = (String) data.getRecord();
+        String[] keyValueSplit = record.split(" ", -1);
+        if (keyValueSplit.length == 2) {
+          Base64 base64 = new Base64();
+          byte[] decoded = null;
+          try {
+            decoded = base64.decodeBase64(keyValueSplit[1].getBytes());
+          }
+          catch (Exception e) {
+            throw new IOException(e);
+          }
+          if (decoded != null) {
+            if (dumpKey) {
+            // Use the timestamp from the EtlKey as the key for this record.
+            // TODO: Is there a better key to use here?
+              writer.append(new Text(keyValueSplit[0]), new Text((new String(decoded)) + recordDelimiter));
+            }
+            else {
+              writer.append(new Text(""), new Text((new String(decoded)) + recordDelimiter));
+            }
+          }
+        }
       }
 
       @Override

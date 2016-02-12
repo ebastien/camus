@@ -41,6 +41,8 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
   public static final String ETL_OUTPUT_RECORD_DELIMITER = "etl.output.record.delimiter";
   public static final String DEFAULT_RECORD_DELIMITER = "";
   public static final String DUMP_KEY = "string.record.writer.dumpkey";
+  public static final String BASE_64_DECODING_TOPIC_PREFIX = "record.base64.decoding.prefix";
+  public static final String BASE_64_DECODING_TOPIC_NON_PREFIX = "record.base64.decoding.nonprefix";
 
 
   private static Logger log = Logger.getLogger(SequenceFileRecordWriterProvider.class);
@@ -48,7 +50,6 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
   protected String recordDelimiter = null;
 
   public TISequenceFileRecordWriterProvider(TaskAttemptContext context) {
-
   }
 
   // TODO: Make this configurable somehow.
@@ -63,7 +64,7 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
   public RecordWriter<IEtlKey, CamusWrapper> getDataRecordWriter(TaskAttemptContext context, String fileName,
       CamusWrapper camusWrapper, FileOutputCommitter committer) throws IOException, InterruptedException {
 
-    Configuration conf = context.getConfiguration();
+    final Configuration conf = context.getConfiguration();
 
     // If recordDelimiter hasn't been initialized, do so now
     if (recordDelimiter == null) {
@@ -92,23 +93,36 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
             compressionType, compressionCodec, context);
 
     final boolean dumpKey = conf.getBoolean(DUMP_KEY, false);
-
+    
     // Return a new anonymous RecordWriter that uses the
     // SequenceFile.Writer to write data to HDFS
     return new RecordWriter<IEtlKey, CamusWrapper>() {
       @Override
       public void write(IEtlKey key, CamusWrapper data) throws IOException, InterruptedException {
         String record = (String) data.getRecord();
+
         String[] keyValueSplit = record.split(" ", -1);
         if (keyValueSplit.length == 2) {
-          Base64 base64 = new Base64();
           byte[] decoded = null;
-          try {
-            decoded = base64.decodeBase64(keyValueSplit[1].getBytes());
+          
+          boolean base64Decode = key.getTopic().startsWith(BASE_64_DECODING_TOPIC_PREFIX) &&
+                                 !key.getTopic().startsWith(BASE_64_DECODING_TOPIC_NON_PREFIX);
+
+          if (base64Decode) {
+            
+            Base64 base64 = new Base64();
+            
+            try {
+              decoded = base64.decodeBase64(keyValueSplit[1].getBytes());
+            }
+            catch (Exception e) {
+              throw new IOException(e);
+            }
           }
-          catch (Exception e) {
-            throw new IOException(e);
-          }
+          else {
+            decoded = keyValueSplit[1].getBytes();
+          } 
+
           if (decoded != null) {
             if (dumpKey) {
             // Use the timestamp from the EtlKey as the key for this record.

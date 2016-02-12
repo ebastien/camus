@@ -42,7 +42,6 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
   public static final String DEFAULT_RECORD_DELIMITER = "";
   public static final String DUMP_KEY = "string.record.writer.dumpkey";
   public static final String BASE_64_DECODING_TOPIC_PREFIX = "record.base64.decoding.prefix";
-  public static final String BASE_64_DECODING_TOPIC_NON_PREFIX = "record.base64.decoding.nonprefix";
 
 
   private static Logger log = Logger.getLogger(SequenceFileRecordWriterProvider.class);
@@ -105,13 +104,10 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
         if (keyValueSplit.length == 2) {
           byte[] decoded = null;
           
-          boolean base64Decode = key.getTopic().startsWith(BASE_64_DECODING_TOPIC_PREFIX) &&
-                                 !key.getTopic().startsWith(BASE_64_DECODING_TOPIC_NON_PREFIX);
+          boolean base64Decode = !key.getTopic().startsWith(BASE_64_DECODING_TOPIC_PREFIX);
 
           if (base64Decode) {
-            
             Base64 base64 = new Base64();
-            
             try {
               decoded = base64.decodeBase64(keyValueSplit[1].getBytes());
             }
@@ -122,7 +118,6 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
           else {
             decoded = keyValueSplit[1].getBytes();
           } 
-
           if (decoded != null) {
             if (dumpKey) {
             // Use the timestamp from the EtlKey as the key for this record.

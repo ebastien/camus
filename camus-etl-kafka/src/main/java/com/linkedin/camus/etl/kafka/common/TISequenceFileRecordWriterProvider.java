@@ -41,7 +41,7 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
   public static final String ETL_OUTPUT_RECORD_DELIMITER = "etl.output.record.delimiter";
   public static final String DEFAULT_RECORD_DELIMITER = "";
   public static final String DUMP_KEY = "string.record.writer.dumpkey";
-  public static final String BASE_64_DECODING_TOPIC_PREFIX = "record.base64.decoding.prefix";
+  public static final String BASE_64_DECODING_TOPIC_PREFIX_EXCLUDE = "record.base64.decoding.exclude.prefix";
 
 
   private static Logger log = Logger.getLogger(SequenceFileRecordWriterProvider.class);
@@ -100,34 +100,26 @@ public class TISequenceFileRecordWriterProvider implements RecordWriterProvider 
       public void write(IEtlKey key, CamusWrapper data) throws IOException, InterruptedException {
         String record = (String) data.getRecord();
 
-        String[] keyValueSplit = record.split(" ", -1);
-        if (keyValueSplit.length == 2) {
-          byte[] decoded = null;
-          
-          boolean base64Decode = !key.getTopic().startsWith(BASE_64_DECODING_TOPIC_PREFIX);
+        String prefixToDecode = conf.get(BASE_64_DECODING_TOPIC_PREFIX_EXCLUDE);
 
-          if (base64Decode) {
+        byte[] decoded = null;
+        boolean base64Decode = prefixToDecode == null || !key.getTopic().startsWith(prefixToDecode);
+
+        if (base64Decode) {
             Base64 base64 = new Base64();
             try {
-              decoded = base64.decodeBase64(keyValueSplit[1].getBytes());
+              decoded = base64.decodeBase64(record.getBytes());
             }
             catch (Exception e) {
               throw new IOException(e);
             }
-          }
-          else {
-            decoded = keyValueSplit[1].getBytes();
-          } 
-          if (decoded != null) {
-            if (dumpKey) {
-            // Use the timestamp from the EtlKey as the key for this record.
-            // TODO: Is there a better key to use here?
-              writer.append(new Text(keyValueSplit[0]), new Text((new String(decoded)) + recordDelimiter));
-            }
-            else {
-              writer.append(new Text(""), new Text((new String(decoded)) + recordDelimiter));
-            }
-          }
+        }
+        else {
+          decoded = record.getBytes();
+        } 
+
+        if (decoded != null) {
+          writer.append(new Text(""), new Text(new String(decoded)));
         }
       }
 

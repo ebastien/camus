@@ -9,7 +9,7 @@
 
   <groupId>com.linkedin.camus</groupId>
   <artifactId>camus-parent</artifactId>
-  <version>0.1.1</version>
+  <version>0.1.2</version>
   <packaging>pom</packaging>
   <name>Camus Parent</name>
   <description>
@@ -224,9 +224,6 @@
 	<groupId>org.apache.maven.plugins</groupId>
 	<artifactId>maven-surefire-plugin</artifactId>
 	<version>2.12.4</version>
-	<configuration>
-	  <argLine>-Djava.awt.headless=true</argLine>
-	</configuration>
       </plugin>
       <plugin>
 	<groupId>org.apache.maven.plugins</groupId>

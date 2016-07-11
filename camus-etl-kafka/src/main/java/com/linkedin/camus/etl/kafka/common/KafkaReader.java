@@ -123,7 +123,8 @@ public class KafkaReader {
         buf.get(bytes, buf.position(), origSize);
         pKey.set(bytes, 0, origSize);
       } else {
-        log.warn("Received message with null message.key(): " + msgAndOffset);
+        // This log is way too verbose and has been disabled in the latest Camus revisions anyway.
+        // log.warn("Received message with null message.key(): " + msgAndOffset);
         pKey.setSize(0);
       }
 

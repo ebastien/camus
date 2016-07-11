@@ -115,6 +115,9 @@ public class CamusJob extends Configured implements Tool {
   public static final String CAMUS_REPORTER_CLASS = "etl.reporter.class";
   public static final String LOG4J_CONFIGURATION = "log4j.configuration";
 
+  public static final String CAMUS_CRYPT_PASSPHRASE = "camus.crypt.passphrase";
+  public static final String CAMUS_CRYPT_PASSPHRASE_ENV = "CAMUS_CRYPT_PASSPHRASE";
+
   private static org.apache.log4j.Logger log;
   private Job hadoopJob = null;
 
@@ -231,6 +234,8 @@ public class CamusJob extends Configured implements Tool {
           DistributedCache.addFileToClassPath(new Path(jarFile), conf, fs);
       }
     }
+
+    loadEnvironment(conf);
   }
 
   public void run() throws Exception {
@@ -649,6 +654,16 @@ public class CamusJob extends Configured implements Tool {
 
     run();
     return 0;
+  }
+
+  private static void loadEnvironment(Configuration conf) {
+    String passphrase = System.getenv(CAMUS_CRYPT_PASSPHRASE_ENV);
+
+    if (passphrase == null) {
+      log.warn("Missing environment variable " + CAMUS_CRYPT_PASSPHRASE_ENV);
+    } else {
+      conf.set(CAMUS_CRYPT_PASSPHRASE, passphrase);
+    }
   }
 
   // Temporarily adding all Kafka parameters here
